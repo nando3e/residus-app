@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  superadmin
+  gestio
+  conductor
+}
+
+enum EstatAssignacio {
+  esborrany
+  publicat
+}
+
+enum EstatExecucio {
+  pendent
+  en_cami
+  arribat
+  recollit_ok
+  recollit_incidencia
+  a_planta
+  descarrega_completada
+}
+
+enum TipusIncidencia {
+  retard
+  client_tancat
+  residu_no_apte
+  problema_camio
+  altra
+}
+
+enum OrigenFoto {
+  telegram
+  correu
+  app
+}
+
+model User {
+  id             String     @id @default(cuid())
+  nom            String
+  usuari         String     @unique
+  passwordHash   String
+  rol            Rol
+  telefon        String?
+  telegramChatId String?
+  actiu          Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  camio          Camio?     @relation("ConductorCamio")
+  logCanvis      LogCanvi[]
+}
+
+model Camio {
+  id          String   @id @default(cuid())
+  nom         String
+  matricula   String   @unique
+  color       String   @default("#3B82F6")
+  conductorId String?  @unique
+  conductor   User?    @relation("ConductorCamio", fields: [conductorId], references: [id])
+  actiu       Boolean  @default(true)
+  viatges     Viatge[]
+}
+
+model Client {
+  id                    String   @id @default(cuid())
+  nom                   String
+  telefon               String?
+  adreca                String?
+  email                 String?
+  instruccionsEspecials String?
+  actiu                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  viatges               Viatge[]
+}
+
+model Viatge {
+  id                String          @id @default(cuid())
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id])
+  tipusResidu       String
+  data              DateTime        @db.Date
+  horaPrevista      String
+  adreca            String?
+  instruccions      String?
+  camioId           String?
+  camio             Camio?          @relation(fields: [camioId], references: [id])
+  estatAssignacio   EstatAssignacio @default(esborrany)
+  estatExecucio     EstatExecucio   @default(pendent)
+  pesReal           Float?
+  observacions      String?
+  conductorSnapshot String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  incidencies       Incidencia[]
+  fotos             Foto[]
+  logCanvis         LogCanvi[]
+}
+
+model Incidencia {
+  id             String          @id @default(cuid())
+  viatgeId       String
+  viatge         Viatge          @relation(fields: [viatgeId], references: [id])
+  tipus          TipusIncidencia
+  detall         String?
+  estimacioTemps Int?
+  fotoUrls       String[]
+  notaVeuUrl     String?
+  lat            Float?
+  lng            Float?
+  timestamp      DateTime        @default(now())
+}
+
+model Foto {
+  id        String     @id @default(cuid())
+  viatgeId  String?
+  viatge    Viatge?    @relation(fields: [viatgeId], references: [id])
+  url       String
+  origen    OrigenFoto @default(app)
+  createdAt DateTime   @default(now())
+}
+
+model FotoPendent {
+  id        String     @id @default(cuid())
+  url       String
+  origen    OrigenFoto
+  metadades String?
+  createdAt DateTime   @default(now())
+}
+
+model LogCanvi {
+  id        String   @id @default(cuid())
+  viatgeId  String
+  viatge    Viatge   @relation(fields: [viatgeId], references: [id])
+  tipus     String
+  detall    String
+  autorId   String?
+  autor     User?    @relation(fields: [autorId], references: [id])
+  timestamp DateTime @default(now())
+}
