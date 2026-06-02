@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { t } from "@/lib/textos";
-import { X, Camera, MapPin } from "lucide-react";
+import { X, Camera } from "lucide-react";
 import { comprimirImatge } from "@/lib/imatge";
 
 interface FormulariIncidenciaProps {
@@ -50,15 +50,6 @@ export default function FormulariIncidencia({ viatgeId, onTancar, onEnviat }: Fo
     setEnviant(true);
     setError("");
 
-    let lat: number | undefined, lng: number | undefined;
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
-      );
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-    } catch { /* GPS no disponible */ }
-
     // Pujar fotos primer
     const fotoUrls: string[] = [];
     for (const foto of fotos) {
@@ -80,8 +71,6 @@ export default function FormulariIncidencia({ viatgeId, onTancar, onEnviat }: Fo
         detall,
         estimacioTemps: estimacioTemps ? parseInt(estimacioTemps) : undefined,
         fotoUrls,
-        lat,
-        lng,
       }),
     });
 
@@ -176,11 +165,6 @@ export default function FormulariIncidencia({ viatgeId, onTancar, onEnviat }: Fo
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <MapPin size={12} />
-            {t.incidencies.gpsAutomatic}
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}

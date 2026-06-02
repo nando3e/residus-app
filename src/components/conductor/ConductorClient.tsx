@@ -268,17 +268,34 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                     const aquestEsRecollit = !boto.noRecollit; // botó "Recollit"
                     if (finalitzat) {
                       const aquestSeleccionat = (aquestEsRecollit && recollit) || (boto.noRecollit && noRecollit);
-                      if (!aquestSeleccionat) return null; // l'altra opció s'amaga
+                      if (aquestSeleccionat) {
+                        // Opció triada: marcada
+                        return (
+                          <button
+                            key={idx}
+                            disabled
+                            className={cn(
+                              "w-full rounded-xl flex items-center justify-center gap-2 py-2.5 text-sm font-semibold",
+                              recollit ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            )}
+                          >
+                            {recollit ? "✓ Recollit" : "✗ No recollit"}
+                          </button>
+                        );
+                      }
+                      // L'altra opció: permet canviar DIRECTAMENT (sense passar per "arribada")
                       return (
                         <button
                           key={idx}
-                          disabled
+                          onClick={onClick}
                           className={cn(
-                            "w-full rounded-xl flex items-center justify-center gap-2 py-2.5 text-sm font-semibold",
-                            recollit ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            "w-full rounded-xl py-2 text-sm font-medium border-2 transition-all",
+                            aquestEsRecollit
+                              ? "border-green-300 text-green-700 hover:bg-green-50"
+                              : "border-red-300 text-red-700 hover:bg-red-50"
                           )}
                         >
-                          {recollit ? "✓ Recollit" : "✗ No recollit"}
+                          Canviar a {aquestEsRecollit ? "Recollit" : "No recollit"}
                         </button>
                       );
                     }
@@ -299,16 +316,6 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                       </button>
                     );
                   })}
-
-                  {/* Permet rectificar la decisió (recollit ↔ no recollit) */}
-                  {finalitzat && (
-                    <button
-                      onClick={() => canviarEstat(viatge.id, "arribat")}
-                      className="w-full text-xs text-gray-400 hover:text-gray-600 py-1"
-                    >
-                      Canviar decisió
-                    </button>
-                  )}
                 </div>
 
                 {/* Separador: aportacions del conductor */}

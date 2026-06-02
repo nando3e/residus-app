@@ -19,21 +19,11 @@ export default function PopupNoRecollit({ viatgeId, onTancar, onFet }: PopupNoRe
     if (tipus === "altra" && !motiu.trim()) return;
     setEnviant(true);
 
-    // GPS opcional
-    let lat: number | undefined, lng: number | undefined;
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 })
-      );
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-    } catch {}
-
     // 1) registra la incidència (i, si és client_tancat, notifica el gestor)
     await fetch(`/api/viatges/${viatgeId}/incidencia`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipus, detall: tipus === "altra" ? motiu : "Client tancat / ningú", lat, lng }),
+      body: JSON.stringify({ tipus, detall: tipus === "altra" ? motiu : "Client tancat / ningú" }),
     });
 
     // 2) marca el viatge com a NO recollit
