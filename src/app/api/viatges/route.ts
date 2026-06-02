@@ -78,15 +78,38 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autoritzat" }, { status: 401 });
 
   const body = await req.json();
+
+  const baseDada = {
+    clientId: body.clientId,
+    tipusResidu: body.tipusResidu,
+    horaPrevista: body.horaPrevista,
+    adreca: body.adreca || null,
+    instruccions: body.instruccions || null,
+  };
+
+  // Repetició (sèrie): genera un viatge independent per cada data fins a dataFi
+  const rep = body.repeticio;
+  if (rep && (rep.frequencia === "diaria" || rep.frequencia === "setmanal") && rep.dataFi) {
+    const inici = new Date(body.data + "T00:00:00.000Z");
+    const fi = new Date(rep.dataFi + "T00:00:00.000Z");
+    if (isNaN(inici.getTime()) || isNaN(fi.getTime()) || fi < inici) {
+      return NextResponse.json({ error: "Rang de dates no vàlid" }, { status: 400 });
+    }
+    const pas = rep.frequencia === "diaria" ? 1 : 7;
+    const serieId = crypto.randomUUID();
+    const MAX = 366; // límit de seguretat
+    const dades = [];
+    const cursor = new Date(inici);
+    while (cursor <= fi && dades.length < MAX) {
+      dades.push({ ...baseDada, serieId, data: new Date(cursor) });
+      cursor.setUTCDate(cursor.getUTCDate() + pas);
+    }
+    await prisma.viatge.createMany({ data: dades });
+    return NextResponse.json({ serieId, total: dades.length }, { status: 201 });
+  }
+
   const viatge = await prisma.viatge.create({
-    data: {
-      clientId: body.clientId,
-      tipusResidu: body.tipusResidu,
-      data: new Date(body.data),
-      horaPrevista: body.horaPrevista,
-      adreca: body.adreca,
-      instruccions: body.instruccions,
-    },
+    data: { ...baseDada, data: new Date(body.data) },
     include: { client: true, camio: true },
   });
 

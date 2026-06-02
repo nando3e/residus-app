@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/textos";
-import { AlertCircle, Clock, Camera } from "lucide-react";
+import { AlertCircle, Clock, Camera, Repeat } from "lucide-react";
 import type { Viatge, Camio } from "./TaulerClient";
 
 interface TarjetaViatgeProps {
@@ -56,6 +56,7 @@ export default function TarjetaViatge({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {viatge.serieId && <Repeat size={11} className="text-blue-500" />}
           {tensFotos && <Camera size={11} className="text-blue-400" />}
           {hihaIncidencia && <AlertCircle size={12} className="text-red-500" />}
           <div className="flex items-center gap-0.5 text-xs text-gray-500">

@@ -86,6 +86,7 @@ model Viatge {
   tipusResidu       String
   data              DateTime        @db.Date
   horaPrevista      String
+  serieId           String?
   adreca            String?
   instruccions      String?
   camioId           String?
@@ -100,6 +101,8 @@ model Viatge {
   incidencies       Incidencia[]
   fotos             Foto[]
   logCanvis         LogCanvi[]
+
+  @@index([serieId])
 }
 
 model Incidencia {

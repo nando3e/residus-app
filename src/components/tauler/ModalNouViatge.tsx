@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Repeat } from "lucide-react";
 import SelectorClient from "./SelectorClient";
 
 interface Client {
@@ -28,6 +28,9 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
   const [horaPrevista, setHoraPrevista] = useState(horaInicial);
   const [adreca, setAdreca] = useState("");
   const [instruccions, setInstruccions] = useState("");
+  const [repetir, setRepetir] = useState(false);
+  const [frequencia, setFrequencia] = useState<"diaria" | "setmanal">("setmanal");
+  const [dataFi, setDataFi] = useState("");
   const [guardant, setGuardant] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,13 +41,20 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!clientId) { setError("Cal seleccionar un client"); return; }
+    if (repetir) {
+      if (!dataFi) { setError("Cal indicar la data de fi de la repetició"); return; }
+      if (dataFi < data) { setError("La data de fi ha de ser posterior a la data d'inici"); return; }
+    }
     setGuardant(true);
     setError("");
 
     const res = await fetch("/api/viatges", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, tipusResidu, data, horaPrevista, adreca, instruccions }),
+      body: JSON.stringify({
+        clientId, tipusResidu, data, horaPrevista, adreca, instruccions,
+        repeticio: repetir ? { frequencia, dataFi } : undefined,
+      }),
     });
 
     setGuardant(false);
@@ -107,6 +117,54 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
             </div>
           </div>
 
+          {/* Repetició */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={repetir}
+                onChange={(e) => {
+                  setRepetir(e.target.checked);
+                  if (e.target.checked && !dataFi) {
+                    // Per defecte, una setmana després de la data d'inici
+                    const d = new Date(data + "T00:00:00.000Z");
+                    d.setUTCDate(d.getUTCDate() + 7);
+                    setDataFi(d.toISOString().split("T")[0]);
+                  }
+                }}
+                className="w-4 h-4 rounded accent-blue-700"
+              />
+              <Repeat size={15} className="text-blue-700" />
+              Repetir aquest viatge
+            </label>
+
+            {repetir && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Freqüència</label>
+                  <select
+                    value={frequencia}
+                    onChange={(e) => setFrequencia(e.target.value as "diaria" | "setmanal")}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="diaria">Cada dia</option>
+                    <option value="setmanal">Cada setmana (mateix dia i hora)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Repetir fins a *</label>
+                  <input
+                    type="date"
+                    value={dataFi}
+                    min={data}
+                    onChange={(e) => setDataFi(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Adreça (opcional)</label>
             <input
@@ -135,7 +193,7 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
               Cancel·lar
             </button>
             <button type="submit" disabled={guardant} className="px-4 py-2 text-sm bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-medium disabled:opacity-50">
-              {guardant ? "Creant..." : "Crear viatge"}
+              {guardant ? "Creant..." : repetir ? "Crear sèrie" : "Crear viatge"}
             </button>
           </div>
         </form>

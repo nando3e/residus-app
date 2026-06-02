@@ -33,8 +33,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const userId = (session.user as any).id;
 
-  // La "nota" no és una columna: es registra com a entrada de l'historial
-  const { nota, ...dades } = body;
+  // La "nota" no és una columna: es registra com a entrada de l'historial.
+  // "scope" indica si un canvi de data/hora s'aplica a tota la sèrie ("serie") o només a aquest viatge.
+  const { nota, scope, ...dades } = body;
 
   const viatgeAntic = await prisma.viatge.findUnique({
     where: { id },
@@ -140,6 +141,44 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
 
+  // Propagació a la sèrie: només canvis de data/hora, només viatges pendents d'avui en endavant.
+  // Els viatges passats o ja recollits/tancats es respecten.
+  if (scope === "serie" && viatgeAntic.serieId && (horaCanviada || diaCanviat)) {
+    const avui = new Date(new Date().toISOString().split("T")[0] + "T00:00:00.000Z");
+    const germans = await prisma.viatge.findMany({
+      where: {
+        serieId: viatgeAntic.serieId,
+        id: { not: id },
+        data: { gte: avui },
+        estatExecucio: "pendent",
+      },
+    });
+    const deltaDies = diaCanviat
+      ? Math.round(
+          (new Date(diaNou + "T00:00:00.000Z").getTime() -
+            new Date(diaAntic + "T00:00:00.000Z").getTime()) /
+            86_400_000
+        )
+      : 0;
+    if (germans.length) {
+      await prisma.$transaction(
+        germans.map((g) => {
+          const novaData = new Date(g.data);
+          if (deltaDies) novaData.setUTCDate(novaData.getUTCDate() + deltaDies);
+          return prisma.viatge.update({
+            where: { id: g.id },
+            data: {
+              ...(horaCanviada ? { horaPrevista: body.horaPrevista } : {}),
+              ...(diaCanviat ? { data: novaData } : {}),
+            },
+          });
+        })
+      );
+      // Un sol esdeveniment basta perquè el client recarregui tota la vista
+      emitreEsdeveniment("viatge_actualitzat", viatge);
+    }
+  }
+
   return NextResponse.json(viatge);
 }
 
@@ -148,6 +187,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!session) return NextResponse.json({ error: "No autoritzat" }, { status: 401 });
 
   const { id } = await params;
+  const scope = new URL(req.url).searchParams.get("scope"); // "serie" | null
 
   const viatge = await prisma.viatge.findUnique({
     where: { id },
@@ -155,46 +195,66 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   });
   if (!viatge) return NextResponse.json({ error: "No trobat" }, { status: 404 });
 
-  // Si estava publicat, notificar la cancel·lació al conductor
-  if (viatge.estatAssignacio === "publicat" && viatge.camio?.conductor) {
-    const conductor = viatge.camio.conductor;
-    await enviarNotificacio({
-      esdeveniment: "viatge.cancellat",
-      versio: "1",
-      prioritat: "alta",
-      origen: origenDeSessio(session),
-      destinatari: {
-        rol: "conductor",
-        id: conductor.id,
-        nom: conductor.nom,
-        telegram_chat_id: conductor.telegramChatId || undefined,
-        telefon: conductor.telefon || undefined,
+  // Determinar quins viatges s'eliminen.
+  // Sèrie: el viatge clicat + els germans pendents d'avui en endavant (es respecten passats/tancats).
+  let objectiu = [viatge];
+  if (scope === "serie" && viatge.serieId) {
+    const avui = new Date(new Date().toISOString().split("T")[0] + "T00:00:00.000Z");
+    const germans = await prisma.viatge.findMany({
+      where: {
+        serieId: viatge.serieId,
+        id: { not: id },
+        data: { gte: avui },
+        estatExecucio: "pendent",
       },
-      viatge: {
-        id,
-        client: viatge.client.nom,
-        residu: viatge.tipusResidu,
-        data: viatge.data.toISOString().slice(0, 10),
-        hora: viatge.horaPrevista,
-        camio: viatge.camio?.nom,
-        matricula: viatge.camio?.matricula,
-      },
-      canvi: { tipus: "cancellacio" },
-      missatge: `El viatge a ${viatge.client.nom} (${viatge.tipusResidu}) s'ha cancel·lat`,
-      enllac: enllacConductor(),
-      timestamp: new Date().toISOString(),
+      include: { camio: { include: { conductor: true } }, client: true },
     });
+    objectiu = [viatge, ...germans];
   }
 
-  // Esborrar fills i el viatge (sense onDelete cascade a l'esquema)
+  // Notificar la cancel·lació al conductor de cada viatge publicat
+  for (const v of objectiu) {
+    if (v.estatAssignacio === "publicat" && v.camio?.conductor) {
+      const conductor = v.camio.conductor;
+      await enviarNotificacio({
+        esdeveniment: "viatge.cancellat",
+        versio: "1",
+        prioritat: "alta",
+        origen: origenDeSessio(session),
+        destinatari: {
+          rol: "conductor",
+          id: conductor.id,
+          nom: conductor.nom,
+          telegram_chat_id: conductor.telegramChatId || undefined,
+          telefon: conductor.telefon || undefined,
+        },
+        viatge: {
+          id: v.id,
+          client: v.client.nom,
+          residu: v.tipusResidu,
+          data: v.data.toISOString().slice(0, 10),
+          hora: v.horaPrevista,
+          camio: v.camio?.nom,
+          matricula: v.camio?.matricula,
+        },
+        canvi: { tipus: "cancellacio" },
+        missatge: `El viatge a ${v.client.nom} (${v.tipusResidu}) s'ha cancel·lat`,
+        enllac: enllacConductor(),
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Esborrar fills i els viatges (sense onDelete cascade a l'esquema)
+  const ids = objectiu.map((v) => v.id);
   await prisma.$transaction([
-    prisma.incidencia.deleteMany({ where: { viatgeId: id } }),
-    prisma.foto.deleteMany({ where: { viatgeId: id } }),
-    prisma.logCanvi.deleteMany({ where: { viatgeId: id } }),
-    prisma.viatge.delete({ where: { id } }),
+    prisma.incidencia.deleteMany({ where: { viatgeId: { in: ids } } }),
+    prisma.foto.deleteMany({ where: { viatgeId: { in: ids } } }),
+    prisma.logCanvi.deleteMany({ where: { viatgeId: { in: ids } } }),
+    prisma.viatge.deleteMany({ where: { id: { in: ids } } }),
   ]);
 
-  emitreEsdeveniment("viatge_eliminat", { id });
+  for (const delId of ids) emitreEsdeveniment("viatge_eliminat", { id: delId });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, eliminats: ids.length });
 }

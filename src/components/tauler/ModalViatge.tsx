@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { t } from "@/lib/textos";
-import { X, Phone, MapPin, Camera, Clock, Truck, AlertCircle, Upload, Trash2 } from "lucide-react";
+import { X, Phone, MapPin, Camera, Clock, Truck, AlertCircle, Upload, Trash2, Repeat } from "lucide-react";
 import { cn, formatData } from "@/lib/utils";
 import { comprimirImatge } from "@/lib/imatge";
 import type { Viatge, Camio } from "./TaulerClient";
@@ -76,6 +76,11 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
                 />
               )}
               <h2 className="text-xl font-bold text-gray-900">{viatge.client.nom}</h2>
+              {viatge.serieId && (
+                <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">
+                  <Repeat size={12} /> Sèrie
+                </span>
+              )}
             </div>
             <p className="text-gray-500 text-sm">{viatge.tipusResidu}</p>
           </div>
@@ -334,7 +339,7 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
             </div>
           ) : (
             <button
-              onClick={() => setConfirmarEliminar(true)}
+              onClick={() => (viatge.serieId ? onEliminar(viatge.id) : setConfirmarEliminar(true))}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
             >
               <Trash2 size={15} /> Eliminar viatge

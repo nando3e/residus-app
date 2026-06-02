@@ -10,6 +10,7 @@ import ModalViatge from "./ModalViatge";
 import BannerAssignacio from "./BannerAssignacio";
 import ModalVerificar from "./ModalVerificar";
 import ModalNouViatge from "./ModalNouViatge";
+import ModalAbastSerie from "./ModalAbastSerie";
 
 export type Viatge = {
   id: string;
@@ -18,6 +19,7 @@ export type Viatge = {
   tipusResidu: string;
   data: string;
   horaPrevista: string;
+  serieId?: string | null;
   adreca?: string;
   instruccions?: string;
   camioId?: string;
@@ -63,6 +65,13 @@ export default function TaulerClient({ rol }: TaulerClientProps) {
   const [diaVerificar, setDiaVerificar] = useState<string | null>(null);
   const [mostrarNouViatge, setMostrarNouViatge] = useState(false);
   const [prefillNouViatge, setPrefillNouViatge] = useState<{ data: string; hora: string } | null>(null);
+  // Acció pendent d'escollir abast (només aquest viatge / tota la sèrie)
+  const [accioSerie, setAccioSerie] = useState<
+    | { tipus: "eliminar"; viatge: Viatge }
+    | { tipus: "moure"; viatge: Viatge; dades: { dia: string; hora: string } }
+    | { tipus: "editar"; viatge: Viatge; dades: any }
+    | null
+  >(null);
 
   const avui = new Date().toISOString().split("T")[0];
   const setmana = setmanaDe(dataSeleccionada);
@@ -133,21 +142,69 @@ export default function TaulerClient({ rol }: TaulerClientProps) {
     await carregarDades();
   }
 
-  async function handleMoure(id: string, dia: string, hora: string) {
+  async function patchViatge(id: string, dades: any) {
     await fetch(`/api/viatges/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        data: new Date(dia + "T00:00:00.000Z").toISOString(),
-        horaPrevista: hora,
-      }),
+      body: JSON.stringify(dades),
+    });
+  }
+
+  async function handleMoure(id: string, dia: string, hora: string) {
+    const v = viatges.find((x) => x.id === id);
+    // Si forma part d'una sèrie, preguntar abast abans d'aplicar el canvi de data/hora
+    if (v?.serieId) {
+      setAccioSerie({ tipus: "moure", viatge: v, dades: { dia, hora } });
+      return;
+    }
+    await patchViatge(id, {
+      data: new Date(dia + "T00:00:00.000Z").toISOString(),
+      horaPrevista: hora,
     });
     await carregarDades();
   }
 
+  async function handleActualitzar(id: string, dades: any) {
+    const v = viatges.find((x) => x.id === id);
+    const horaCanviada = !!dades.horaPrevista && !!v && dades.horaPrevista !== v.horaPrevista;
+    // Canvi d'hora en un viatge de sèrie → preguntar abast
+    if (v?.serieId && horaCanviada) {
+      setViatgeModal(null);
+      setAccioSerie({ tipus: "editar", viatge: v, dades });
+      return;
+    }
+    await patchViatge(id, dades);
+    setViatgeModal(null);
+    await carregarDades();
+  }
+
   async function handleEliminar(id: string) {
+    const v = viatges.find((x) => x.id === id);
+    if (v?.serieId) {
+      setViatgeModal(null);
+      setAccioSerie({ tipus: "eliminar", viatge: v });
+      return;
+    }
     await fetch(`/api/viatges/${id}`, { method: "DELETE" });
     setViatgeModal(null);
+    await carregarDades();
+  }
+
+  async function executarAccioSerie(scope: "un" | "serie") {
+    if (!accioSerie) return;
+    const ac = accioSerie;
+    setAccioSerie(null);
+    if (ac.tipus === "eliminar") {
+      await fetch(`/api/viatges/${ac.viatge.id}?scope=${scope}`, { method: "DELETE" });
+    } else if (ac.tipus === "moure") {
+      await patchViatge(ac.viatge.id, {
+        data: new Date(ac.dades.dia + "T00:00:00.000Z").toISOString(),
+        horaPrevista: ac.dades.hora,
+        scope,
+      });
+    } else {
+      await patchViatge(ac.viatge.id, { ...ac.dades, scope });
+    }
     await carregarDades();
   }
 
@@ -323,16 +380,16 @@ export default function TaulerClient({ rol }: TaulerClientProps) {
           viatge={viatgeModal}
           camions={camions}
           onTancar={() => setViatgeModal(null)}
-          onActualitzar={async (id, dades) => {
-            await fetch(`/api/viatges/${id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(dades),
-            });
-            setViatgeModal(null);
-            await carregarDades();
-          }}
+          onActualitzar={handleActualitzar}
           onEliminar={handleEliminar}
+        />
+      )}
+
+      {accioSerie && (
+        <ModalAbastSerie
+          accio={accioSerie.tipus === "eliminar" ? "eliminar" : "modificar"}
+          onTriar={executarAccioSerie}
+          onCancelar={() => setAccioSerie(null)}
         />
       )}
 
