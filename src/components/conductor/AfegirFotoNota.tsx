@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Camera, StickyNote, Check } from "lucide-react";
+import { comprimirImatge } from "@/lib/imatge";
 
 interface AfegirFotoNotaProps {
   viatgeId: string;
@@ -20,7 +21,10 @@ export default function AfegirFotoNota({ viatgeId, onCanvi }: AfegirFotoNotaProp
     if (fitxers.length === 0) return;
     setPujant(true);
     const form = new FormData();
-    fitxers.forEach((f) => form.append("foto", f));
+    for (const f of fitxers) {
+      const comprimida = await comprimirImatge(f);
+      form.append("foto", comprimida, (f.name.replace(/\.[^.]+$/, "") || "foto") + ".jpg");
+    }
     await fetch(`/api/viatges/${viatgeId}/fotos`, { method: "POST", body: form });
     setPujant(false);
     if (inputRef.current) inputRef.current.value = "";

@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { t } from "@/lib/textos";
 import { X, Camera, MapPin } from "lucide-react";
+import { comprimirImatge } from "@/lib/imatge";
 
 interface FormulariIncidenciaProps {
   viatgeId: string;
@@ -62,7 +63,8 @@ export default function FormulariIncidencia({ viatgeId, onTancar, onEnviat }: Fo
     const fotoUrls: string[] = [];
     for (const foto of fotos) {
       const form = new FormData();
-      form.append("foto", foto);
+      const comprimida = await comprimirImatge(foto);
+      form.append("foto", comprimida, (foto.name.replace(/\.[^.]+$/, "") || "foto") + ".jpg");
       const res = await fetch(`/api/viatges/${viatgeId}/fotos`, { method: "POST", body: form });
       if (res.ok) {
         const creades = await res.json();

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { t } from "@/lib/textos";
-import { MapPin, Phone, Camera, Package, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { MapPin, Phone, Package, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FormulariIncidencia from "./FormulariIncidencia";
-import FormulariDescàrrega from "./FormulariDescarrega";
 import AfegirFotoNota from "./AfegirFotoNota";
+import PopupNoRecollit from "./PopupNoRecollit";
+import LlistaIncidencies from "./LlistaIncidencies";
 
 interface Viatge {
   id: string;
@@ -28,26 +29,23 @@ const NIVELL: Record<string, number> = {
   arribat: 2,
   recollit_ok: 3,
   recollit_incidencia: 3,
-  a_planta: 4,
-  descarrega_completada: 5,
+  a_planta: 3,
+  descarrega_completada: 3,
 };
 
-// Tots els botons possibles, en ordre cronològic
+// Botons del flux, en ordre cronològic
 type AccioBoto = {
   nivell: number;
   label: string;
   estat?: string; // canvi directe d'estat
-  incidencia?: boolean; // obre formulari incidència
-  descarrega?: boolean; // obre formulari descàrrega
+  noRecollit?: boolean; // obre popup motiu de no recollida
   to: "blue" | "green" | "red";
 };
 const BOTONS: AccioBoto[] = [
   { nivell: 1, label: "En camí", estat: "en_cami", to: "blue" },
   { nivell: 2, label: "Arribada a client", estat: "arribat", to: "blue" },
-  { nivell: 3, label: "Recollit sense incidència", estat: "recollit_ok", to: "green" },
-  { nivell: 3, label: "Recollit amb incidència", incidencia: true, to: "red" },
-  { nivell: 4, label: "A la planta", estat: "a_planta", to: "blue" },
-  { nivell: 5, label: "Descàrrega completada", descarrega: true, to: "green" },
+  { nivell: 3, label: "Recollit", estat: "recollit_ok", to: "green" },
+  { nivell: 3, label: "No recollit", noRecollit: true, to: "red" },
 ];
 
 interface ConductorClientProps {
@@ -59,7 +57,7 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
   const [carregant, setCarregant] = useState(true);
   const [expandit, setExpandit] = useState<string | null>(null);
   const [mostrarIncidencia, setMostrarIncidencia] = useState<string | null>(null);
-  const [mostrarDescarrega, setMostrarDescarrega] = useState<string | null>(null);
+  const [mostrarNoRecollit, setMostrarNoRecollit] = useState<string | null>(null);
 
   async function carregarViatges() {
     setCarregant(true);
@@ -123,14 +121,16 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
       <p className="text-sm text-gray-500">{viatges.length} viatge{viatges.length > 1 ? "s" : ""} avui</p>
 
       {viatges.map((viatge) => {
-        const completat = viatge.estatExecucio === "descarrega_completada";
+        const recollit = viatge.estatExecucio === "recollit_ok";
+        const noRecollit = viatge.estatExecucio === "recollit_incidencia";
+        const finalitzat = recollit || noRecollit;
         const esExpandit = expandit === viatge.id;
         const adreca = viatge.adreca || viatge.client.adreca;
 
         return (
           <div key={viatge.id} className={cn(
             "bg-white rounded-2xl shadow-sm border-2 overflow-hidden",
-            completat ? "border-green-200 opacity-75" : "border-gray-200"
+            recollit ? "border-green-300" : noRecollit ? "border-red-300" : "border-gray-200"
           )}>
             {/* Capçalera */}
             <button
@@ -143,7 +143,7 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   <span className="text-sm font-mono font-semibold text-gray-700">{viatge.horaPrevista}</span>
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded-full font-medium",
-                    completat ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                    recollit ? "bg-green-100 text-green-700" : noRecollit ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
                   )}>
                     {t.estats[viatge.estatExecucio] || viatge.estatExecucio}
                   </span>
@@ -203,31 +203,23 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   </div>
                 )}
 
-                {/* Afegir foto (càmera) o nota a la recollida */}
-                <AfegirFotoNota viatgeId={viatge.id} onCanvi={carregarViatges} />
-
-                {/* Incidències prèvies */}
-                {viatge.incidencies.length > 0 && (
-                  <div className="bg-red-50 rounded-xl px-3 py-2 text-sm text-red-800">
-                    ⚡ {viatge.incidencies.length} incidència registrada
-                  </div>
-                )}
-
-                {/* Botons d'estat: tots visibles, ressaltant el següent lògic */}
+                {/* Botons del flux: En camí → Arribada → Recollit / No recollit */}
                 <div className="space-y-2 pt-1">
-                  {completat && (
-                    <div className="flex items-center gap-2 text-green-600 text-sm font-medium mb-1">
-                      ✅ Viatge completat
+                  {finalitzat && (
+                    <div className={cn(
+                      "flex items-center gap-2 text-sm font-medium mb-1",
+                      recollit ? "text-green-600" : "text-red-600"
+                    )}>
+                      {recollit ? "✅ Recollit" : "⚠️ No recollit"}
                     </div>
                   )}
                   {BOTONS.map((boto, idx) => {
                     const nivellActual = NIVELL[viatge.estatExecucio] ?? 0;
-                    const fet = boto.nivell <= nivellActual;
+                    const fet = boto.estat ? (NIVELL[boto.estat] ?? 99) <= nivellActual && !boto.noRecollit : false;
                     const seguent = boto.nivell === nivellActual + 1;
 
                     const onClick = () => {
-                      if (boto.incidencia) setMostrarIncidencia(viatge.id);
-                      else if (boto.descarrega) setMostrarDescarrega(viatge.id);
+                      if (boto.noRecollit) setMostrarNoRecollit(viatge.id);
                       else if (boto.estat) canviarEstat(viatge.id, boto.estat);
                     };
 
@@ -257,6 +249,21 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                     );
                   })}
                 </div>
+
+                {/* Separador: aportacions del conductor */}
+                <div className="border-t border-gray-100 pt-3 space-y-3">
+                  <LlistaIncidencies viatgeId={viatge.id} incidencies={viatge.incidencies} onCanvi={carregarViatges} />
+
+                  <button
+                    onClick={() => setMostrarIncidencia(viatge.id)}
+                    className="w-full flex items-center justify-center gap-2 border border-red-300 text-red-600 rounded-xl py-2.5 text-sm font-medium hover:bg-red-50"
+                  >
+                    <AlertCircle size={16} /> Afegir incidència
+                  </button>
+
+                  {/* Afegir foto (càmera) o nota */}
+                  <AfegirFotoNota viatgeId={viatge.id} onCanvi={carregarViatges} />
+                </div>
               </div>
             )}
           </div>
@@ -275,12 +282,12 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
         />
       )}
 
-      {mostrarDescarrega && (
-        <FormulariDescàrrega
-          viatgeId={mostrarDescarrega}
-          onTancar={() => setMostrarDescarrega(null)}
-          onEnviat={async () => {
-            setMostrarDescarrega(null);
+      {mostrarNoRecollit && (
+        <PopupNoRecollit
+          viatgeId={mostrarNoRecollit}
+          onTancar={() => setMostrarNoRecollit(null)}
+          onFet={async () => {
+            setMostrarNoRecollit(null);
             await carregarViatges();
           }}
         />

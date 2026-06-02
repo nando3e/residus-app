@@ -43,6 +43,11 @@ GOOGLE_SERVICE_ACCOUNT_JSON=
 APP_BASE_URL=https://EL-TEU-DOMINI
 ```
 
+## Fotos (rendiment)
+- Les fotos es **comprimeixen al navegador** abans de pujar-les (`src/lib/imatge.ts`): es redimensionen a 1280px i es desen com a JPEG q0.7 → ~100-300 KB en lloc de diversos MB. Això fa que carregui ràpid tant amb S3 com amb el fallback.
+- Si **S3 no està configurat** (claus buides), les fotos es desen com a **data URL base64 a la BD** (fallback). Funciona per a demo, però per a producció cal configurar les claus S3 (Hetzner Object Storage) i així les fotos van a Object Storage amb URL normal.
+- Quan S3 està mal/no configurat, el client té timeouts curts (no s'esperen reintents llargs).
+
 ## Notes
 - En arrencar, el contenidor executa `prisma migrate deploy` (aplica migracions pendents) i després `next start`.
 - Si la BD de producció és **la mateixa** que la de desenvolupament (`sole`), les migracions ja hi són i el seed també.

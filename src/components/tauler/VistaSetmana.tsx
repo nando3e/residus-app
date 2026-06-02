@@ -208,7 +208,7 @@ export default function VistaSetmana({
                     const hihaIncidencia = v.incidencies.length > 0;
 
                     // Color = estat: planificat (gris) / assignat (vermell) / realitzat (verd)
-                    const completat = v.estatExecucio === "descarrega_completada";
+                    const completat = ["recollit_ok", "descarrega_completada"].includes(v.estatExecucio);
                     const assignat = !!v.camioId || preview;
                     const estatClass = completat
                       ? "bg-green-100 hover:bg-green-200"

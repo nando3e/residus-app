@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { t } from "@/lib/textos";
 import { X, Phone, MapPin, Camera, Clock, Truck, AlertCircle, Upload, Trash2 } from "lucide-react";
 import { cn, formatData } from "@/lib/utils";
+import { comprimirImatge } from "@/lib/imatge";
 import type { Viatge, Camio } from "./TaulerClient";
 
 interface ModalViatgeProps {
@@ -21,6 +22,7 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
   const [guardant, setGuardant] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [eliminant, setEliminant] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const [fotos, setFotos] = useState(viatge.fotos);
   const [pujant, setPujant] = useState(false);
   const inputFotoRef = useRef<HTMLInputElement>(null);
@@ -30,7 +32,10 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
     if (fitxers.length === 0) return;
     setPujant(true);
     const form = new FormData();
-    fitxers.forEach((f) => form.append("foto", f));
+    for (const f of fitxers) {
+      const comprimida = await comprimirImatge(f);
+      form.append("foto", comprimida, (f.name.replace(/\.[^.]+$/, "") || "foto") + ".jpg");
+    }
     const res = await fetch(`/api/viatges/${viatge.id}/fotos`, { method: "POST", body: form });
     if (res.ok) {
       const noves = await res.json();
@@ -75,7 +80,8 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
         </div>
 
         {/* Cos */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Dades del viatge</p>
           {/* Info bàsica */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -183,6 +189,19 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
             </div>
           </div>
 
+          {/* ===== Separador: aportacions del conductor ===== */}
+          <div className="border-t border-gray-200 pt-4 flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Aportacions del conductor</p>
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-full font-medium",
+              viatge.estatExecucio === "recollit_ok" ? "bg-green-100 text-green-700"
+              : viatge.estatExecucio === "recollit_incidencia" ? "bg-red-100 text-red-700"
+              : "bg-blue-100 text-blue-700"
+            )}>
+              {t.estats[viatge.estatExecucio] || viatge.estatExecucio}
+            </span>
+          </div>
+
           {/* Fotos */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -210,13 +229,14 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
             {fotos.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {fotos.map((f) => (
-                  <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer">
+                  <button key={f.id} onClick={() => setFotoAmpliada(f.url)} className="shrink-0">
                     <img
                       src={f.url}
                       alt="Foto"
-                      className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-blue-400"
+                      loading="lazy"
+                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-blue-400"
                     />
-                  </a>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -241,7 +261,9 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
                     {inc.fotoUrls?.length > 0 && (
                       <div className="flex gap-2 mt-2">
                         {inc.fotoUrls.map((url: string, i: number) => (
-                          <img key={i} src={url} alt="Foto incidència" className="w-16 h-16 object-cover rounded border" />
+                          <button key={i} onClick={() => setFotoAmpliada(url)}>
+                            <img src={url} alt="Foto incidència" loading="lazy" className="w-16 h-16 object-cover rounded border hover:ring-2 hover:ring-red-400" />
+                          </button>
                         ))}
                       </div>
                     )}
@@ -318,6 +340,27 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
           </div>
         </div>
       </div>
+
+      {/* Lightbox foto ampliada */}
+      {fotoAmpliada && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
+          onClick={() => setFotoAmpliada(null)}
+        >
+          <button
+            onClick={() => setFotoAmpliada(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+          >
+            <X size={28} />
+          </button>
+          <img
+            src={fotoAmpliada}
+            alt="Foto ampliada"
+            className="max-w-full max-h-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -24,10 +24,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
 
-  // Actualitzar estat del viatge
-  await prisma.viatge.update({
-    where: { id },
-    data: { estatExecucio: "recollit_incidencia" },
+  // Registrar al historial (l'estat del viatge el controlen els botons, no la incidència)
+  const userId = (session.user as any).id;
+  await prisma.logCanvi.create({
+    data: {
+      viatgeId: id,
+      tipus: "incidencia",
+      detall: `Incidència afegida: ${t.incidencies[body.tipus] || body.tipus}${body.detall ? ` — ${body.detall}` : ""}`,
+      autorId: userId !== "superadmin" ? userId : undefined,
+    },
   });
 
   const viatge = await prisma.viatge.findUnique({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { pujarFoto } from "@/lib/s3";
+import { pujarFoto, s3Configurat } from "@/lib/s3";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -23,10 +23,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const nomFitxer = `viatges/${id}/${Date.now()}-${fitxer.name}`;
 
     let url: string;
-    try {
-      url = await pujarFoto(buffer, nomFitxer, fitxer.type);
-    } catch {
-      // En dev sense S3, usar data URL com a fallback
+    if (s3Configurat()) {
+      try {
+        url = await pujarFoto(buffer, nomFitxer, fitxer.type);
+      } catch {
+        url = `data:${fitxer.type};base64,${buffer.toString("base64")}`;
+      }
+    } else {
+      // Sense S3 configurat: directe a base64 (sense esperar timeouts)
       url = `data:${fitxer.type};base64,${buffer.toString("base64")}`;
     }
 

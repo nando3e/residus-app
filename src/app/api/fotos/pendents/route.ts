@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { pujarFoto } from "@/lib/s3";
+import { pujarFoto, s3Configurat } from "@/lib/s3";
 
 export async function GET() {
   const session = await auth();
@@ -29,9 +29,13 @@ export async function POST(req: NextRequest) {
   const nomFitxer = `pendents/${Date.now()}-${fitxer.name}`;
 
   let url: string;
-  try {
-    url = await pujarFoto(buffer, nomFitxer, fitxer.type);
-  } catch {
+  if (s3Configurat()) {
+    try {
+      url = await pujarFoto(buffer, nomFitxer, fitxer.type);
+    } catch {
+      url = `data:${fitxer.type};base64,${buffer.toString("base64")}`;
+    }
+  } else {
     url = `data:${fitxer.type};base64,${buffer.toString("base64")}`;
   }
 
