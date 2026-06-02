@@ -45,6 +45,11 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
     if (inputFotoRef.current) inputFotoRef.current.value = "";
   }
 
+  async function esborrarFoto(fotoId: string) {
+    setFotos((prev) => prev.filter((f) => f.id !== fotoId)); // optimista
+    await fetch(`/api/viatges/${viatge.id}/fotos/${fotoId}`, { method: "DELETE" });
+  }
+
   async function handleGuardar() {
     setGuardant(true);
     await onActualitzar(viatge.id, {
@@ -233,14 +238,23 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
             {fotos.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {fotos.map((f) => (
-                  <button key={f.id} onClick={() => setFotoAmpliada(f.url)} className="shrink-0">
-                    <img
-                      src={f.url}
-                      alt="Foto"
-                      loading="lazy"
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-blue-400"
-                    />
-                  </button>
+                  <div key={f.id} className="relative shrink-0">
+                    <button onClick={() => setFotoAmpliada(f.url)}>
+                      <img
+                        src={f.url}
+                        alt="Foto"
+                        loading="lazy"
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:ring-2 hover:ring-blue-400"
+                      />
+                    </button>
+                    <button
+                      onClick={() => esborrarFoto(f.id)}
+                      className="absolute -top-1.5 -right-1.5 bg-white rounded-full border border-gray-300 shadow p-0.5 text-gray-500 hover:text-red-600 hover:border-red-300"
+                      title="Esborrar foto"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (

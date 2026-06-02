@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertCircle, Pencil, Check, X, Trash2 } from "lucide-react";
 import { t } from "@/lib/textos";
 
@@ -21,32 +21,37 @@ export default function LlistaIncidencies({ viatgeId, incidencies, onCanvi }: Ll
   const [editant, setEditant] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [desant, setDesant] = useState(false);
+  // Còpia local per a actualitzacions optimistes (instantànies)
+  const [llista, setLlista] = useState(incidencies);
+  useEffect(() => setLlista(incidencies), [incidencies]);
 
   async function desar(incId: string) {
     setDesant(true);
+    setLlista((prev) => prev.map((i) => (i.id === incId ? { ...i, detall: text } : i)));
+    setEditant(null);
     await fetch(`/api/viatges/${viatgeId}/incidencia/${incId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ detall: text }),
     });
     setDesant(false);
-    setEditant(null);
-    await onCanvi();
+    onCanvi(); // refresc silenciós en segon pla
   }
 
   async function esborrar(incId: string) {
+    setLlista((prev) => prev.filter((i) => i.id !== incId)); // desapareix a l'instant
     await fetch(`/api/viatges/${viatgeId}/incidencia/${incId}`, { method: "DELETE" });
-    await onCanvi();
+    onCanvi();
   }
 
-  if (incidencies.length === 0) return null;
+  if (llista.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
-        <AlertCircle size={13} className="text-red-500" /> Incidències ({incidencies.length})
+        <AlertCircle size={13} className="text-red-500" /> Incidències ({llista.length})
       </p>
-      {incidencies.map((inc) => (
+      {llista.map((inc) => (
         <div key={inc.id} className="bg-red-50 rounded-xl px-3 py-2 text-sm">
           <div className="flex items-center justify-between">
             <span className="font-medium text-red-800">{t.incidencies[inc.tipus] || inc.tipus}</span>

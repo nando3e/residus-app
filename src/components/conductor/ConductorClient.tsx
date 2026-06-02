@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { t } from "@/lib/textos";
-import { MapPin, Phone, Package, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { MapPin, Phone, Package, Clock, ChevronDown, ChevronUp, AlertCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FormulariIncidencia from "./FormulariIncidencia";
 import AfegirFotoNota from "./AfegirFotoNota";
@@ -94,6 +94,12 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
       body: JSON.stringify({ estatExecucio: nouEstat }),
     });
     await carregarViatges();
+  }
+
+  async function esborrarFoto(viatgeId: string, fotoId: string) {
+    // Optimista: desapareix a l'instant
+    setViatges((prev) => prev.map((v) => (v.id === viatgeId ? { ...v, fotos: v.fotos.filter((f) => f.id !== fotoId) } : v)));
+    await fetch(`/api/viatges/${viatgeId}/fotos/${fotoId}`, { method: "DELETE" });
   }
 
   if (carregant) {
@@ -208,9 +214,18 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                     <p className="text-xs font-medium text-gray-500 mb-2">Fotos ({viatge.fotos.length})</p>
                     <div className="flex gap-2 overflow-x-auto">
                       {viatge.fotos.map((f) => (
-                        <button key={f.id} onClick={() => setFotoAmpliada(f.url)} className="shrink-0">
-                          <img src={f.url} alt="Foto" loading="lazy" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
-                        </button>
+                        <div key={f.id} className="relative shrink-0">
+                          <button onClick={() => setFotoAmpliada(f.url)}>
+                            <img src={f.url} alt="Foto" loading="lazy" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
+                          </button>
+                          <button
+                            onClick={() => esborrarFoto(viatge.id, f.id)}
+                            className="absolute -top-1.5 -right-1.5 bg-white rounded-full border border-gray-300 shadow p-0.5 text-gray-500 hover:text-red-600 hover:border-red-300"
+                            title="Esborrar foto"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
