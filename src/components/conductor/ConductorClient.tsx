@@ -60,8 +60,9 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
   const [mostrarNoRecollit, setMostrarNoRecollit] = useState<string | null>(null);
   const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
+  // Refresc silenciós: actualitza les dades sense tapar la llista amb el spinner.
+  // El spinner de pantalla completa només surt a la primera càrrega (estat inicial `carregant`).
   async function carregarViatges() {
-    setCarregant(true);
     try {
       const res = await fetch(`/api/viatges?conductorId=${userId}`);
       const dades = await res.json();
@@ -85,6 +86,8 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
   }, [userId]);
 
   async function canviarEstat(viatgeId: string, nouEstat: string) {
+    // Actualització optimista: la UI canvia a l'instant
+    setViatges((prev) => prev.map((v) => (v.id === viatgeId ? { ...v, estatExecucio: nouEstat } : v)));
     await fetch(`/api/viatges/${viatgeId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -225,14 +228,7 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   )}
                   {BOTONS.map((boto, idx) => {
                     const nivellActual = NIVELL[viatge.estatExecucio] ?? 0;
-                    const fet = boto.estat ? (NIVELL[boto.estat] ?? 99) <= nivellActual && !boto.noRecollit : false;
-                    const seguent = boto.nivell === nivellActual + 1;
-
-                    const onClick = () => {
-                      if (boto.noRecollit) setMostrarNoRecollit(viatge.id);
-                      else if (boto.estat) canviarEstat(viatge.id, boto.estat);
-                    };
-
+                    const esTerminal = boto.nivell === 3; // Recollit / No recollit
                     const colorSeguent =
                       boto.to === "green"
                         ? "bg-green-600 hover:bg-green-700 text-white"
@@ -240,24 +236,79 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                         ? "bg-red-500 hover:bg-red-600 text-white"
                         : "bg-blue-700 hover:bg-blue-800 text-white";
 
+                    const onClick = () => {
+                      if (boto.noRecollit) setMostrarNoRecollit(viatge.id);
+                      else if (boto.estat) canviarEstat(viatge.id, boto.estat);
+                    };
+
+                    // --- Botons seqüencials (En camí, Arribada) ---
+                    if (!esTerminal) {
+                      const fet = (NIVELL[boto.estat!] ?? 99) <= nivellActual;
+                      const seguent = boto.nivell === nivellActual + 1;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={onClick}
+                          className={cn(
+                            "w-full rounded-xl flex items-center justify-center gap-2 transition-all",
+                            seguent
+                              ? `${colorSeguent} py-3.5 text-base font-bold shadow-md ring-2 ring-offset-1 ring-blue-300`
+                              : fet
+                              ? "py-2 text-sm font-medium bg-gray-50 text-gray-400 border border-gray-200"
+                              : "py-2.5 text-sm font-medium bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                          )}
+                        >
+                          {fet && <span className="text-green-500">✓</span>}
+                          {boto.label}
+                        </button>
+                      );
+                    }
+
+                    // --- Botons terminals (Recollit / No recollit): un exclou l'altre ---
+                    const aquestEsRecollit = !boto.noRecollit; // botó "Recollit"
+                    if (finalitzat) {
+                      const aquestSeleccionat = (aquestEsRecollit && recollit) || (boto.noRecollit && noRecollit);
+                      if (!aquestSeleccionat) return null; // l'altra opció s'amaga
+                      return (
+                        <button
+                          key={idx}
+                          disabled
+                          className={cn(
+                            "w-full rounded-xl flex items-center justify-center gap-2 py-2.5 text-sm font-semibold",
+                            recollit ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          )}
+                        >
+                          {recollit ? "✓ Recollit" : "✗ No recollit"}
+                        </button>
+                      );
+                    }
+                    // Encara no decidit: opcions disponibles (ressaltades quan ja s'ha arribat)
+                    const ressaltar = nivellActual === 2;
                     return (
                       <button
                         key={idx}
                         onClick={onClick}
                         className={cn(
                           "w-full rounded-xl flex items-center justify-center gap-2 transition-all",
-                          seguent
-                            ? `${colorSeguent} py-3.5 text-base font-bold shadow-md ring-2 ring-offset-1 ring-blue-300`
-                            : fet
-                            ? "py-2 text-sm font-medium bg-gray-50 text-gray-400 border border-gray-200"
+                          ressaltar
+                            ? `${colorSeguent} py-3.5 text-base font-bold shadow-md`
                             : "py-2.5 text-sm font-medium bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
                         )}
                       >
-                        {fet && <span className="text-green-500">✓</span>}
                         {boto.label}
                       </button>
                     );
                   })}
+
+                  {/* Permet rectificar la decisió (recollit ↔ no recollit) */}
+                  {finalitzat && (
+                    <button
+                      onClick={() => canviarEstat(viatge.id, "arribat")}
+                      className="w-full text-xs text-gray-400 hover:text-gray-600 py-1"
+                    >
+                      Canviar decisió
+                    </button>
+                  )}
                 </div>
 
                 {/* Separador: aportacions del conductor */}
