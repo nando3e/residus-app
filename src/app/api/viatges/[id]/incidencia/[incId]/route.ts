@@ -37,3 +37,30 @@ export async function PATCH(
 
   return NextResponse.json(incidencia);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; incId: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "No autoritzat" }, { status: 401 });
+
+  const { id, incId } = await params;
+  const userId = (session.user as any).id;
+
+  const inc = await prisma.incidencia.findUnique({ where: { id: incId } });
+  await prisma.incidencia.delete({ where: { id: incId } });
+
+  await prisma.logCanvi.create({
+    data: {
+      viatgeId: id,
+      tipus: "incidencia",
+      detall: `Incidència eliminada${inc ? `: ${t.incidencies[inc.tipus] || inc.tipus}` : ""}`,
+      autorId: userId !== "superadmin" ? userId : undefined,
+    },
+  });
+
+  emitreEsdeveniment("viatge_actualitzat", { id });
+
+  return NextResponse.json({ ok: true });
+}

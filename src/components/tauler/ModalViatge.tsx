@@ -198,7 +198,11 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
               : viatge.estatExecucio === "recollit_incidencia" ? "bg-red-100 text-red-700"
               : "bg-blue-100 text-blue-700"
             )}>
-              {t.estats[viatge.estatExecucio] || viatge.estatExecucio}
+              {viatge.estatExecucio === "recollit_ok"
+                ? (viatge.incidencies.length > 0 ? "Recollit amb incidència" : "Recollit")
+                : viatge.estatExecucio === "recollit_incidencia"
+                ? "No recollit"
+                : (t.estats[viatge.estatExecucio] || viatge.estatExecucio)}
             </span>
           </div>
 

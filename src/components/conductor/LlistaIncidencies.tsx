@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Pencil, Check, X } from "lucide-react";
+import { AlertCircle, Pencil, Check, X, Trash2 } from "lucide-react";
 import { t } from "@/lib/textos";
 
 interface Incidencia {
@@ -31,6 +31,11 @@ export default function LlistaIncidencies({ viatgeId, incidencies, onCanvi }: Ll
     });
     setDesant(false);
     setEditant(null);
+    await onCanvi();
+  }
+
+  async function esborrar(incId: string) {
+    await fetch(`/api/viatges/${viatgeId}/incidencia/${incId}`, { method: "DELETE" });
     await onCanvi();
   }
 
@@ -68,13 +73,22 @@ export default function LlistaIncidencies({ viatgeId, incidencies, onCanvi }: Ll
           ) : (
             <div className="flex items-start justify-between gap-2 mt-0.5">
               <span className="text-red-600">{inc.detall || "—"}</span>
-              <button
-                onClick={() => { setEditant(inc.id); setText(inc.detall || ""); }}
-                className="shrink-0 text-red-400 hover:text-red-700"
-                title="Editar"
-              >
-                <Pencil size={13} />
-              </button>
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  onClick={() => { setEditant(inc.id); setText(inc.detall || ""); }}
+                  className="text-red-400 hover:text-red-700"
+                  title="Editar"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => esborrar(inc.id)}
+                  className="text-red-400 hover:text-red-700"
+                  title="Esborrar"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           )}
         </div>

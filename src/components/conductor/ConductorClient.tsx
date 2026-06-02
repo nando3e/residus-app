@@ -58,6 +58,7 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
   const [expandit, setExpandit] = useState<string | null>(null);
   const [mostrarIncidencia, setMostrarIncidencia] = useState<string | null>(null);
   const [mostrarNoRecollit, setMostrarNoRecollit] = useState<string | null>(null);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
   async function carregarViatges() {
     setCarregant(true);
@@ -124,6 +125,14 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
         const recollit = viatge.estatExecucio === "recollit_ok";
         const noRecollit = viatge.estatExecucio === "recollit_incidencia";
         const finalitzat = recollit || noRecollit;
+        const ambIncidencia = viatge.incidencies.length > 0;
+        const recollitAmbInc = recollit && ambIncidencia;
+        // Etiqueta de l'estat (distingeix recollit / recollit amb incidència / no recollit)
+        const etiquetaEstat = recollit
+          ? (ambIncidencia ? "Recollit amb incidència" : "Recollit")
+          : noRecollit
+          ? "No recollit"
+          : (t.estats[viatge.estatExecucio] || viatge.estatExecucio);
         const esExpandit = expandit === viatge.id;
         const adreca = viatge.adreca || viatge.client.adreca;
 
@@ -138,15 +147,16 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
               onClick={() => setExpandit(esExpandit ? null : viatge.id)}
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Clock size={14} className="text-gray-400 shrink-0" />
                   <span className="text-sm font-mono font-semibold text-gray-700">{viatge.horaPrevista}</span>
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded-full font-medium",
                     recollit ? "bg-green-100 text-green-700" : noRecollit ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
                   )}>
-                    {t.estats[viatge.estatExecucio] || viatge.estatExecucio}
+                    {etiquetaEstat}
                   </span>
+                  {recollitAmbInc && <AlertCircle size={13} className="text-amber-500" />}
                 </div>
                 <h3 className="text-base font-bold text-gray-900 truncate">{viatge.client.nom}</h3>
                 <p className="text-sm text-gray-500">{viatge.tipusResidu}</p>
@@ -195,9 +205,9 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                     <p className="text-xs font-medium text-gray-500 mb-2">Fotos ({viatge.fotos.length})</p>
                     <div className="flex gap-2 overflow-x-auto">
                       {viatge.fotos.map((f) => (
-                        <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                          <img src={f.url} alt="Foto" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
-                        </a>
+                        <button key={f.id} onClick={() => setFotoAmpliada(f.url)} className="shrink-0">
+                          <img src={f.url} alt="Foto" loading="lazy" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -208,9 +218,9 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   {finalitzat && (
                     <div className={cn(
                       "flex items-center gap-2 text-sm font-medium mb-1",
-                      recollit ? "text-green-600" : "text-red-600"
+                      noRecollit ? "text-red-600" : recollitAmbInc ? "text-amber-600" : "text-green-600"
                     )}>
-                      {recollit ? "✅ Recollit" : "⚠️ No recollit"}
+                      {noRecollit ? "⚠️ No recollit" : recollitAmbInc ? "✅ Recollit (amb incidència)" : "✅ Recollit"}
                     </div>
                   )}
                   {BOTONS.map((boto, idx) => {
@@ -291,6 +301,20 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
             await carregarViatges();
           }}
         />
+      )}
+
+      {/* Lightbox foto ampliada */}
+      {fotoAmpliada && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
+          onClick={() => setFotoAmpliada(null)}
+        >
+          <img
+            src={fotoAmpliada}
+            alt="Foto ampliada"
+            className="max-w-full max-h-full rounded-lg object-contain"
+          />
+        </div>
       )}
     </div>
   );

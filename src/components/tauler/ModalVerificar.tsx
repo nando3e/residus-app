@@ -16,6 +16,8 @@ interface ModalVerificarProps {
 
 export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTancar, jaPublicada }: ModalVerificarProps) {
   const senseAssignar = viatges.filter((v) => !v.camioId);
+  // Viatges assignats pendents de publicar (en borrador)
+  const pendentsDePublicar = viatges.filter((v) => v.camioId && v.estatAssignacio === "esborrany");
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -74,13 +76,14 @@ export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTa
           <button onClick={onTancar} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-300">
             Tancar
           </button>
-          {!jaPublicada && (
+          {pendentsDePublicar.length > 0 && (
             <button
               onClick={onPublicar}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
             >
               <Send size={15} />
-              {t.tauler.publicarJornada}
+              {jaPublicada ? "Publicar canvis" : t.tauler.publicarJornada}
+              <span className="bg-white/25 rounded-full px-1.5">{pendentsDePublicar.length}</span>
             </button>
           )}
         </div>
