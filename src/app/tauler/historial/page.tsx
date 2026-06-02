@@ -9,6 +9,29 @@ import type { Viatge, Camio } from "@/components/tauler/TaulerClient";
 
 interface Client { id: string; nom: string }
 
+// Etiqueta + color de l'estat, coherent amb la vista del conductor
+function estatVisual(v: Viatge): { etiqueta: string; classe: string } {
+  const ambIncidencia = v.incidencies.length > 0;
+  if (v.estatExecucio === "recollit_ok") {
+    return ambIncidencia
+      ? { etiqueta: "Recollit amb incidència", classe: "bg-amber-100 text-amber-700" }
+      : { etiqueta: "Recollit", classe: "bg-green-100 text-green-700" };
+  }
+  if (v.estatExecucio === "recollit_incidencia") {
+    return { etiqueta: "No recollit", classe: "bg-red-100 text-red-700" };
+  }
+  if (v.estatExecucio === "descarrega_completada") {
+    return { etiqueta: "Descàrrega completada", classe: "bg-emerald-100 text-emerald-700" };
+  }
+  if (v.estatExecucio === "a_planta") {
+    return { etiqueta: "A la planta", classe: "bg-purple-100 text-purple-700" };
+  }
+  if (v.estatExecucio === "en_cami" || v.estatExecucio === "arribat") {
+    return { etiqueta: t.estats[v.estatExecucio] || v.estatExecucio, classe: "bg-blue-100 text-blue-700" };
+  }
+  return { etiqueta: t.estats[v.estatExecucio] || v.estatExecucio, classe: "bg-gray-100 text-gray-700" };
+}
+
 export default function HistorialPage() {
   const [viatges, setViatges] = useState<Viatge[]>([]);
   const [camions, setCamions] = useState<Camio[]>([]);
@@ -51,7 +74,7 @@ export default function HistorialPage() {
       v.tipusResidu,
       v.camio?.nom || "",
       v.conductorSnapshot || "",
-      t.estats[v.estatExecucio] || v.estatExecucio,
+      estatVisual(v).etiqueta,
       v.pesReal || "",
       v.observacions || "",
       v.incidencies.map((i) => i.tipus).join("; "),
@@ -120,7 +143,7 @@ export default function HistorialPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {["Data", "Hora", "Client", "Residu", "Camió", "Conductor", "Pes (kg)", "Incidències"].map((cap) => (
+                  {["Data", "Hora", "Client", "Residu", "Camió", "Conductor", "Estat", "Pes (kg)", "Incidències"].map((cap) => (
                     <th key={cap} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">{cap}</th>
                   ))}
                 </tr>
@@ -143,6 +166,16 @@ export default function HistorialPage() {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{v.conductorSnapshot || "—"}</td>
+                    <td className="px-4 py-2.5">
+                      {(() => {
+                        const { etiqueta, classe } = estatVisual(v);
+                        return (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${classe}`}>
+                            {etiqueta}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-2.5 text-gray-600">{v.pesReal || "—"}</td>
                     <td className="px-4 py-2.5">
                       {v.incidencies.length > 0 && (

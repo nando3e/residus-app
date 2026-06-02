@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const where: any = {};
 
   if (historial) {
-    where.estatExecucio = "descarrega_completada";
+    // Historial = tots els viatges del rang (sense filtre d'estat)
     if (data) where.data = { gte: new Date(data) };
     if (dataFi) {
       where.data = { ...(where.data || {}), lte: new Date(dataFi) };
