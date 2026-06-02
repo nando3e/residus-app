@@ -1,19 +1,27 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Camera, StickyNote, Check } from "lucide-react";
+import { Camera, StickyNote, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { comprimirImatge } from "@/lib/imatge";
+
+interface NotaDesada {
+  id: string;
+  detall: string;
+  timestamp: string | Date;
+}
 
 interface AfegirFotoNotaProps {
   viatgeId: string;
   onCanvi: () => Promise<void>;
+  notes?: NotaDesada[];
 }
 
-export default function AfegirFotoNota({ viatgeId, onCanvi }: AfegirFotoNotaProps) {
+export default function AfegirFotoNota({ viatgeId, onCanvi, notes = [] }: AfegirFotoNotaProps) {
   const [nota, setNota] = useState("");
   const [pujant, setPujant] = useState(false);
   const [desant, setDesant] = useState(false);
   const [desada, setDesada] = useState(false);
+  const [historialObert, setHistorialObert] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFotos(e: React.ChangeEvent<HTMLInputElement>) {
@@ -85,6 +93,34 @@ export default function AfegirFotoNota({ viatgeId, onCanvi }: AfegirFotoNotaProp
         </button>
       </div>
       {desada && <p className="text-xs text-green-600">Nota desada ✓</p>}
+
+      {notes.length > 0 && (
+        <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setHistorialObert((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <span className="flex items-center gap-1.5">
+              <StickyNote size={14} className="text-gray-500" />
+              Notes desades ({notes.length})
+            </span>
+            {historialObert ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {historialObert && (
+            <div className="max-h-32 overflow-y-auto border-t border-gray-100 divide-y divide-gray-100">
+              {notes.map((n) => (
+                <div key={n.id} className="px-3 py-2 text-xs text-gray-700 flex gap-2">
+                  <span className="text-gray-400 whitespace-nowrap tabular-nums">
+                    {new Date(n.timestamp).toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="break-words">{n.detall}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

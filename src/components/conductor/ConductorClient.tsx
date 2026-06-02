@@ -20,6 +20,7 @@ interface Viatge {
   estatAssignacio: string;
   fotos: { id: string; url: string }[];
   incidencies: any[];
+  logCanvis?: { id: string; tipus: string; detall: string; timestamp: string }[];
 }
 
 // Nivell de progrés de cada estat (per saber què ja s'ha fet i què toca)
@@ -345,7 +346,11 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   </button>
 
                   {/* Afegir foto (càmera) o nota */}
-                  <AfegirFotoNota viatgeId={viatge.id} onCanvi={carregarViatges} />
+                  <AfegirFotoNota
+                    viatgeId={viatge.id}
+                    onCanvi={carregarViatges}
+                    notes={(viatge.logCanvis || []).filter((l) => l.tipus === "nota")}
+                  />
                 </div>
               </div>
             )}
