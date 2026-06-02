@@ -148,7 +148,8 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
 
         return (
           <div key={viatge.id} className={cn(
-            "bg-white rounded-2xl shadow-sm border-2 overflow-hidden",
+            "rounded-2xl shadow-sm border-2 overflow-hidden",
+            finalitzat ? "bg-gray-100" : "bg-white",
             recollit ? "border-green-300" : noRecollit ? "border-red-300" : "border-gray-200"
           )}>
             {/* Capçalera */}
