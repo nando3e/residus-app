@@ -14,7 +14,8 @@ interface FotoPendent {
 
 interface Viatge {
   id: string;
-  client: { nom: string };
+  client: { nom: string } | null;
+  clientOcasional?: string | null;
   tipusResidu: string;
   horaPrevista: string;
   data: string;
@@ -109,7 +110,7 @@ export default function BustiaPage() {
                       <option value="">Selecciona viatge</option>
                       {viatges.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.horaPrevista} — {v.client.nom} ({v.tipusResidu})
+                          {v.horaPrevista} — {v.clientOcasional || v.client?.nom} ({v.tipusResidu})
                         </option>
                       ))}
                     </select>

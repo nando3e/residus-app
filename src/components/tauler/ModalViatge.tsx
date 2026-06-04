@@ -18,6 +18,7 @@ interface ModalViatgeProps {
 export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, onEliminar }: ModalViatgeProps) {
   const [camioId, setCamioId] = useState(viatge.camioId || "");
   const [horaPrevista, setHoraPrevista] = useState(viatge.horaPrevista);
+  const [telefon, setTelefon] = useState(viatge.telefon || "");
   const [instruccions, setInstruccions] = useState(viatge.instruccions || "");
   const [guardant, setGuardant] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
@@ -55,6 +56,7 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
     await onActualitzar(viatge.id, {
       camioId: camioId || null,
       horaPrevista,
+      telefon: telefon || null,
       instruccions: instruccions || null,
     });
     setGuardant(false);
@@ -75,7 +77,7 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
                   style={{ backgroundColor: camioAssignat.color }}
                 />
               )}
-              <h2 className="text-xl font-bold text-gray-900">{viatge.client.nom}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{viatge.clientOcasional || viatge.client?.nom}</h2>
               {viatge.serieId && (
                 <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">
                   <Repeat size={12} /> Sèrie
@@ -106,33 +108,37 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
                 />
               </div>
             </div>
-            {(viatge.adreca || viatge.client.adreca) && (
+            {(viatge.adreca || viatge.client?.adreca) && (
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <MapPin size={16} className="text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-xs text-gray-400">{t.viatge.adreca}</p>
                   <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(viatge.adreca || viatge.client.adreca || "")}`}
+                    href={`https://maps.google.com/?q=${encodeURIComponent(viatge.adreca || viatge.client?.adreca || "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-blue-600 hover:underline"
                   >
-                    {viatge.adreca || viatge.client.adreca}
+                    {viatge.adreca || viatge.client?.adreca}
                   </a>
                 </div>
               </div>
             )}
-            {viatge.client.telefon && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-400">{t.viatge.client}</p>
-                  <a href={`tel:${viatge.client.telefon}`} className="font-medium text-blue-600 hover:underline">
-                    {viatge.client.telefon}
-                  </a>
-                </div>
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <Phone size={16} className="text-gray-400 mt-1" />
+              <div className="flex-1">
+                <p className="text-xs text-gray-400">
+                  Telèfon{!telefon && viatge.client?.telefon ? " (del client)" : ""}
+                </p>
+                <input
+                  type="tel"
+                  value={telefon}
+                  onChange={(e) => setTelefon(e.target.value)}
+                  placeholder={viatge.client?.telefon || "Sense telèfon"}
+                  className="w-full border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
-            )}
+            </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div>
                 <p className="text-xs text-gray-400">{t.viatge.estat}</p>
@@ -146,7 +152,7 @@ export default function ModalViatge({ viatge, camions, onTancar, onActualitzar, 
             </div>
           </div>
 
-          {viatge.client.instruccionsEspecials && (
+          {viatge.client?.instruccionsEspecials && (
             <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-800">
               ⚠️ <span className="font-medium">Client:</span> {viatge.client.instruccionsEspecials}
             </div>

@@ -26,18 +26,32 @@ export default function TarjetaViatge({
 }: TarjetaViatgeProps) {
   const hihaIncidencia = viatge.incidencies.length > 0;
   const esBorrador = viatge.estatAssignacio === "esborrany";
+  const perEliminar = viatge.pendentEliminar;
   const color = seleccionat && camioActiu ? camioActiu.color : (camioColor || "#9CA3AF");
   const tensFotos = viatge.fotos.length > 0;
+
+  const completat = ["recollit_ok", "descarrega_completada"].includes(viatge.estatExecucio);
+  const noRecollit = viatge.estatExecucio === "recollit_incidencia";
+  const assignat = !!viatge.camioId;
+  const bgClass = perEliminar
+    ? "bg-red-300"
+    : completat
+    ? "bg-green-50"
+    : assignat || noRecollit
+    ? "bg-orange-50"
+    : "bg-red-100";
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left rounded-lg p-2.5 transition-all border-2 bg-white hover:shadow-md",
+        "w-full text-left rounded-lg p-2.5 transition-all border-2 hover:shadow-md",
+        bgClass,
         modeAssignacio && "cursor-pointer",
         seleccionat ? "shadow-lg scale-[1.02] ring-2 ring-offset-1" : "shadow-sm",
         esBorrador ? "border-dashed" : "border-solid",
-        hihaIncidencia && "ring-1 ring-red-400"
+        hihaIncidencia && "ring-1 ring-red-400",
+        perEliminar && "ring-2 ring-red-600"
       )}
       style={{
         borderColor: color,
@@ -47,9 +61,10 @@ export default function TarjetaViatge({
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1 mb-0.5">
-            <span className="text-xs font-semibold text-gray-700 truncate">
-              {viatge.client.nom}
+            <span className={cn("text-xs font-semibold text-gray-700 truncate", perEliminar && "line-through")}>
+              {viatge.clientOcasional || viatge.client?.nom}
             </span>
+            {perEliminar && <span className="text-[8px] font-bold text-red-700 bg-red-200 rounded px-1 shrink-0">ELIMINAR</span>}
           </div>
           {!compact && (
             <p className="text-xs text-gray-500 truncate">{viatge.tipusResidu}</p>

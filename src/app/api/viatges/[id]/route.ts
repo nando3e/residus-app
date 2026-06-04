@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { emitreEsdeveniment } from "@/lib/sse";
-import { enviarNotificacio, construirDeeplink, enllacConductor, origenDeSessio } from "@/lib/notificacions";
 import { t } from "@/lib/textos";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +43,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (!viatgeAntic) return NextResponse.json({ error: "No trobat" }, { status: 404 });
 
+  // Detecció de canvis (cal calcular-ho ABANS d'actualitzar)
+  const diaAntic = viatgeAntic.data.toISOString().slice(0, 10);
+  const diaNou = body.data ? new Date(body.data).toISOString().slice(0, 10) : diaAntic;
+  const horaCanviada = !!body.horaPrevista && body.horaPrevista !== viatgeAntic.horaPrevista;
+  const diaCanviat = diaNou !== diaAntic;
+  const camioCanviat = body.camioId !== undefined && body.camioId !== viatgeAntic.camioId;
+
+  // Si es modifica un viatge ja publicat (hora/dia/camió), torna a esborrany:
+  // el canvi queda pendent de publicar i no es notifica fins llavors.
+  if (viatgeAntic.estatAssignacio === "publicat" && (camioCanviat || horaCanviada || diaCanviat)) {
+    dades.estatAssignacio = "esborrany";
+  }
+
   const incloure = {
     client: true,
     camio: { include: { conductor: true } },
@@ -67,13 +79,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     });
   }
-
-  // Detecció de canvis
-  const diaAntic = viatgeAntic.data.toISOString().slice(0, 10);
-  const diaNou = body.data ? new Date(body.data).toISOString().slice(0, 10) : diaAntic;
-  const horaCanviada = !!body.horaPrevista && body.horaPrevista !== viatgeAntic.horaPrevista;
-  const diaCanviat = diaNou !== diaAntic;
-  const camioCanviat = body.camioId !== undefined && body.camioId !== viatgeAntic.camioId;
 
   // Log del canvi
   const canvis = [];
@@ -100,46 +105,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Emetre SSE
   emitreEsdeveniment("viatge_actualitzat", viatge);
 
-  // Notificar si canvi post-publicació important (hora, dia o camió)
-  if (
-    viatgeAntic.estatAssignacio === "publicat" &&
-    (camioCanviat || horaCanviada || diaCanviat) &&
-    viatge.camio?.conductor
-  ) {
-    const conductor = viatge.camio.conductor;
-    const canvi: { tipus: "hora" | "dia" | "camio"; abans?: string; despres?: string } = horaCanviada
-      ? { tipus: "hora", abans: viatgeAntic.horaPrevista, despres: viatge.horaPrevista }
-      : diaCanviat
-      ? { tipus: "dia", abans: diaAntic, despres: diaNou }
-      : { tipus: "camio", despres: viatge.camio?.nom };
-
-    await enviarNotificacio({
-      esdeveniment: "viatge.modificat",
-      versio: "1",
-      prioritat: "normal",
-      origen: origenDeSessio(session),
-      destinatari: {
-        rol: "conductor",
-        id: conductor.id,
-        nom: conductor.nom,
-        telegram_chat_id: conductor.telegramChatId || undefined,
-        telefon: conductor.telefon || undefined,
-      },
-      viatge: {
-        id,
-        client: viatge.client.nom,
-        residu: viatge.tipusResidu,
-        data: diaNou,
-        hora: viatge.horaPrevista,
-        camio: viatge.camio?.nom,
-        matricula: viatge.camio?.matricula,
-      },
-      canvi,
-      missatge: canvis.join(" · "),
-      enllac: construirDeeplink(id),
-      timestamp: new Date().toISOString(),
-    });
-  }
+  // Nota: els canvis sobre viatges publicats NO es notifiquen aquí.
+  // El viatge torna a "esborrany" (més amunt) i la notificació al conductor
+  // (viatge.modificat) s'envia quan es publica el dia (/api/viatges/publicar).
 
   // Propagació a la sèrie: només canvis de data/hora, només viatges pendents d'avui en endavant.
   // Els viatges passats o ja recollits/tancats es respecten.
@@ -170,6 +138,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             data: {
               ...(horaCanviada ? { horaPrevista: body.horaPrevista } : {}),
               ...(diaCanviat ? { data: novaData } : {}),
+              // Si estava publicat, torna a esborrany perquè el canvi es pugui publicar.
+              ...(g.estatAssignacio === "publicat" ? { estatAssignacio: "esborrany" as const } : {}),
             },
           });
         })
@@ -212,49 +182,42 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     objectiu = [viatge, ...germans];
   }
 
-  // Notificar la cancel·lació al conductor de cada viatge publicat
-  for (const v of objectiu) {
-    if (v.estatAssignacio === "publicat" && v.camio?.conductor) {
-      const conductor = v.camio.conductor;
-      await enviarNotificacio({
-        esdeveniment: "viatge.cancellat",
-        versio: "1",
-        prioritat: "alta",
-        origen: origenDeSessio(session),
-        destinatari: {
-          rol: "conductor",
-          id: conductor.id,
-          nom: conductor.nom,
-          telegram_chat_id: conductor.telegramChatId || undefined,
-          telefon: conductor.telefon || undefined,
-        },
-        viatge: {
-          id: v.id,
-          client: v.client.nom,
-          residu: v.tipusResidu,
-          data: v.data.toISOString().slice(0, 10),
-          hora: v.horaPrevista,
-          camio: v.camio?.nom,
-          matricula: v.camio?.matricula,
-        },
-        canvi: { tipus: "cancellacio" },
-        missatge: `El viatge a ${v.client.nom} (${v.tipusResidu}) s'ha cancel·lat`,
-        enllac: enllacConductor(),
-        timestamp: new Date().toISOString(),
-      });
-    }
+  // Un viatge que ja s'ha publicat alguna vegada (el conductor el coneix) no s'esborra
+  // de seguida: es marca per eliminar i la baixa es notifica quan es publica el dia.
+  // Un viatge mai publicat s'esborra directament (el conductor no l'ha vist mai).
+  const jaPublicat = (v: { horaPublicada: string | null }) => v.horaPublicada !== null;
+  const perMarcar = objectiu.filter(jaPublicat);
+  const perEsborrar = objectiu.filter((v) => !jaPublicat(v));
+
+  // Marcar per eliminar (borrat suau)
+  if (perMarcar.length) {
+    const idsMarcar = perMarcar.map((v) => v.id);
+    await prisma.viatge.updateMany({
+      where: { id: { in: idsMarcar } },
+      data: { pendentEliminar: true },
+    });
+    await prisma.logCanvi.createMany({
+      data: idsMarcar.map((vid) => ({
+        viatgeId: vid,
+        tipus: "actualitzacio",
+        detall: "Marcat per eliminar (pendent de publicar)",
+        autorId: (session.user as any).id !== "superadmin" ? (session.user as any).id : undefined,
+      })),
+    });
+    for (const v of perMarcar) emitreEsdeveniment("viatge_actualitzat", { id: v.id });
   }
 
-  // Esborrar fills i els viatges (sense onDelete cascade a l'esquema)
-  const ids = objectiu.map((v) => v.id);
-  await prisma.$transaction([
-    prisma.incidencia.deleteMany({ where: { viatgeId: { in: ids } } }),
-    prisma.foto.deleteMany({ where: { viatgeId: { in: ids } } }),
-    prisma.logCanvi.deleteMany({ where: { viatgeId: { in: ids } } }),
-    prisma.viatge.deleteMany({ where: { id: { in: ids } } }),
-  ]);
+  // Esborrar de debò els no publicats (fills inclosos, sense onDelete cascade a l'esquema)
+  if (perEsborrar.length) {
+    const idsEsborrar = perEsborrar.map((v) => v.id);
+    await prisma.$transaction([
+      prisma.incidencia.deleteMany({ where: { viatgeId: { in: idsEsborrar } } }),
+      prisma.foto.deleteMany({ where: { viatgeId: { in: idsEsborrar } } }),
+      prisma.logCanvi.deleteMany({ where: { viatgeId: { in: idsEsborrar } } }),
+      prisma.viatge.deleteMany({ where: { id: { in: idsEsborrar } } }),
+    ]);
+    for (const delId of idsEsborrar) emitreEsdeveniment("viatge_eliminat", { id: delId });
+  }
 
-  for (const delId of ids) emitreEsdeveniment("viatge_eliminat", { id: delId });
-
-  return NextResponse.json({ ok: true, eliminats: ids.length });
+  return NextResponse.json({ ok: true, marcats: perMarcar.length, eliminats: perEsborrar.length });
 }

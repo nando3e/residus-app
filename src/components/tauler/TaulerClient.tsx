@@ -14,18 +14,21 @@ import ModalAbastSerie from "./ModalAbastSerie";
 
 export type Viatge = {
   id: string;
-  client: { id: string; nom: string; telefon?: string; adreca?: string; instruccionsEspecials?: string };
-  clientId: string;
+  client: { id: string; nom: string; telefon?: string; adreca?: string; instruccionsEspecials?: string } | null;
+  clientId: string | null;
+  clientOcasional?: string | null;
   tipusResidu: string;
   data: string;
   horaPrevista: string;
   serieId?: string | null;
   adreca?: string;
+  telefon?: string;
   instruccions?: string;
   camioId?: string;
   camio?: { id: string; nom: string; color: string; matricula: string };
   estatAssignacio: "esborrany" | "publicat";
   estatExecucio: string;
+  pendentEliminar?: boolean;
   pesReal?: number;
   conductorSnapshot?: string;
   observacions?: string;
@@ -228,7 +231,7 @@ export default function TaulerClient({ rol }: TaulerClientProps) {
   const viatgesDiaKanban = viatges.filter((v) => v.data.slice(0, 10) === dataSeleccionada);
   const jaPublicadaDia = viatgesDiaKanban.some((v) => v.estatAssignacio === "publicat");
   const teAssignacionsPendents = viatgesDiaKanban.some(
-    (v) => v.camioId && v.estatAssignacio === "esborrany"
+    (v) => (v.camioId && v.estatAssignacio === "esborrany") || v.pendentEliminar
   );
 
   // Viatges del dia que es verifica (modal)

@@ -126,8 +126,10 @@ export default function VistaSetmana({
             {dies.map((dia, i) => {
               const viatgesDia = viatges.filter((v) => diaDe(v) === dia);
               const borradorsAssignats = viatgesDia.filter((v) => v.camioId && v.estatAssignacio === "esborrany");
-              const senseAssignar = viatgesDia.filter((v) => !v.camioId);
+              const pendentsEliminar = viatgesDia.filter((v) => v.pendentEliminar);
+              const senseAssignar = viatgesDia.filter((v) => !v.camioId && !v.pendentEliminar);
               const publicats = viatgesDia.filter((v) => v.estatAssignacio === "publicat");
+              const hiHaCanvis = borradorsAssignats.length > 0 || pendentsEliminar.length > 0;
               const esAvui = dia === avui;
               return (
                 <div key={dia} className={cn("px-2 py-2 text-center border-r border-gray-100", esAvui && "bg-blue-50")}>
@@ -137,7 +139,7 @@ export default function VistaSetmana({
                   </div>
                   <div className="flex items-center justify-center gap-1.5 mt-1 flex-wrap">
                     <span className="text-xs text-gray-400">{viatgesDia.length} viatges</span>
-                    {publicats.length > 0 && borradorsAssignats.length === 0 && (
+                    {publicats.length > 0 && !hiHaCanvis && (
                       <span className="text-xs text-green-600">✓ publicat</span>
                     )}
                     {senseAssignar.length > 0 && (
@@ -145,7 +147,7 @@ export default function VistaSetmana({
                         {senseAssignar.length} sense assignar
                       </span>
                     )}
-                    {borradorsAssignats.length > 0 && (
+                    {hiHaCanvis && (
                       <button
                         onClick={() => onPublicarDia(dia)}
                         className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-1.5 py-0.5 rounded-full"
@@ -202,20 +204,29 @@ export default function VistaSetmana({
                     const { lane, total } = lanes[v.id];
                     const ample = 100 / total;
                     const esBorrador = v.estatAssignacio === "esborrany";
+                    const perEliminar = v.pendentEliminar;
                     const seleccionat = viatgesSeleccionats.has(v.id);
                     const preview = seleccionat && !!camioActiu;
                     const camioMostrar = preview ? camioActiu : camions.find((c) => c.id === v.camioId);
                     const hihaIncidencia = v.incidencies.length > 0;
 
-                    // Color = estat: planificat (gris) / assignat (vermell) / realitzat (verd)
                     const completat = ["recollit_ok", "descarrega_completada"].includes(v.estatExecucio);
+                    const noRecollit = v.estatExecucio === "recollit_incidencia";
                     const assignat = !!v.camioId || preview;
-                    const estatClass = completat
+                    const estatClass = perEliminar
+                      ? "bg-red-300 hover:bg-red-400"
+                      : completat
                       ? "bg-green-100 hover:bg-green-200"
-                      : assignat
-                      ? "bg-red-100 hover:bg-red-200"
-                      : "bg-gray-100 hover:bg-gray-200";
-                    const textClass = completat ? "text-green-900" : assignat ? "text-red-900" : "text-gray-700";
+                      : assignat || noRecollit
+                      ? "bg-orange-100 hover:bg-orange-200"
+                      : "bg-red-200 hover:bg-red-300";
+                    const textClass = perEliminar
+                      ? "text-red-900"
+                      : completat
+                      ? "text-green-900"
+                      : assignat || noRecollit
+                      ? "text-orange-900"
+                      : "text-red-900";
 
                     return (
                       <button
@@ -233,9 +244,10 @@ export default function VistaSetmana({
                         className={cn(
                           "absolute rounded-md px-1.5 py-1 text-left overflow-hidden transition-all hover:shadow-md hover:z-10 flex items-start gap-1",
                           estatClass,
-                          esBorrador ? "border-2 border-dashed border-gray-400" : "border border-gray-300",
+                          esBorrador ? "border-2 border-dashed" : "border border-gray-300",
                           seleccionat && "ring-2 ring-blue-500 z-10",
-                          hihaIncidencia && "ring-1 ring-red-500"
+                          hihaIncidencia && "ring-1 ring-red-500",
+                          perEliminar && "ring-2 ring-red-600 border-red-500"
                         )}
                         style={{
                           top: top + 1,
@@ -246,7 +258,8 @@ export default function VistaSetmana({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1 leading-tight">
-                            <span className={cn("text-[11px] font-semibold truncate", textClass)}>{v.client.nom}</span>
+                            <span className={cn("text-[11px] font-semibold truncate", textClass, perEliminar && "line-through")}>{v.clientOcasional || v.client?.nom}</span>
+                            {perEliminar && <span className="text-[8px] font-bold text-red-700 bg-red-200 rounded px-1 shrink-0">ELIMINAR</span>}
                             {hihaIncidencia && <AlertCircle size={10} className="text-red-600 shrink-0" />}
                             {v.fotos.length > 0 && <Camera size={10} className="text-gray-500 shrink-0" />}
                           </div>

@@ -80,10 +80,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   const baseDada = {
-    clientId: body.clientId,
+    clientId: body.clientId || null,
+    clientOcasional: body.clientOcasional || null,
     tipusResidu: body.tipusResidu,
     horaPrevista: body.horaPrevista,
     adreca: body.adreca || null,
+    telefon: body.telefon || null,
     instruccions: body.instruccions || null,
   };
 

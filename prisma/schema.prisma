@@ -81,13 +81,15 @@ model Client {
 
 model Viatge {
   id                String          @id @default(cuid())
-  clientId          String
-  client            Client          @relation(fields: [clientId], references: [id])
+  clientId          String?
+  client            Client?         @relation(fields: [clientId], references: [id])
+  clientOcasional   String?
   tipusResidu       String
   data              DateTime        @db.Date
   horaPrevista      String
   serieId           String?
   adreca            String?
+  telefon           String?
   instruccions      String?
   camioId           String?
   camio             Camio?          @relation(fields: [camioId], references: [id])
@@ -96,6 +98,12 @@ model Viatge {
   pesReal           Float?
   observacions      String?
   conductorSnapshot String?
+  // Marcat per esborrar: el viatge segueix visible fins que es publica la baixa.
+  pendentEliminar   Boolean         @default(false)
+  // Snapshot de l'estat en el moment de l'última publicació (baseline per al diff).
+  dataPublicada     DateTime?       @db.Date
+  horaPublicada     String?
+  camioPublicatId   String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   incidencies       Incidencia[]

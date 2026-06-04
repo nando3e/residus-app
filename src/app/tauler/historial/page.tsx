@@ -70,7 +70,7 @@ export default function HistorialPage() {
     const files = viatges.map((v) => [
       new Date(v.data).toLocaleDateString("ca-ES"),
       v.horaPrevista,
-      v.client.nom,
+      v.clientOcasional || v.client?.nom,
       v.tipusResidu,
       v.camio?.nom || "",
       v.conductorSnapshot || "",
@@ -155,7 +155,7 @@ export default function HistorialPage() {
                       {new Date(v.data).toLocaleDateString("ca-ES")}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-gray-700">{v.horaPrevista}</td>
-                    <td className="px-4 py-2.5 font-medium text-gray-900">{v.client.nom}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">{v.clientOcasional || v.client?.nom}</td>
                     <td className="px-4 py-2.5 text-gray-600">{v.tipusResidu}</td>
                     <td className="px-4 py-2.5">
                       {v.camio && (

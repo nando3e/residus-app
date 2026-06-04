@@ -23,10 +23,14 @@ const RESIDUS_COMUNS = ["Cartró", "Paper", "Plàstic", "Vidre", "Metalls", "Org
 export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaInicial = "09:00" }: ModalNouViatgeProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
+  const [clientOcasional, setClientOcasional] = useState("");
+  const [esClientOcasional, setEsClientOcasional] = useState(false);
   const [tipusResidu, setTipusResidu] = useState("Cartró");
+  const [residuLliure, setResiduLliure] = useState("");
   const [data, setData] = useState(dataInicial);
   const [horaPrevista, setHoraPrevista] = useState(horaInicial);
   const [adreca, setAdreca] = useState("");
+  const [telefon, setTelefon] = useState("");
   const [instruccions, setInstruccions] = useState("");
   const [repetir, setRepetir] = useState(false);
   const [frequencia, setFrequencia] = useState<"diaria" | "setmanal">("setmanal");
@@ -40,7 +44,9 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!clientId) { setError("Cal seleccionar un client"); return; }
+    if (!esClientOcasional && !clientId) { setError("Cal seleccionar un client"); return; }
+    if (esClientOcasional && !clientOcasional.trim()) { setError("Cal escriure el nom del client ocasional"); return; }
+    if (tipusResidu === "Altres" && !residuLliure.trim()) { setError("Cal escriure el tipus de residu"); return; }
     if (repetir) {
       if (!dataFi) { setError("Cal indicar la data de fi de la repetició"); return; }
       if (dataFi < data) { setError("La data de fi ha de ser posterior a la data d'inici"); return; }
@@ -48,11 +54,15 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
     setGuardant(true);
     setError("");
 
+    const tipusFinal = tipusResidu === "Altres" ? residuLliure.trim() : tipusResidu;
+
     const res = await fetch("/api/viatges", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        clientId, tipusResidu, data, horaPrevista, adreca, instruccions,
+        clientId: esClientOcasional ? undefined : clientId,
+        clientOcasional: esClientOcasional ? clientOcasional.trim() : undefined,
+        tipusResidu: tipusFinal, data, horaPrevista, adreca, telefon, instruccions,
         repeticio: repetir ? { frequencia, dataFi } : undefined,
       }),
     });
@@ -77,21 +87,53 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-            <SelectorClient clients={clients} value={clientId} onChange={setClientId} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">Client *</label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={esClientOcasional}
+                  onChange={(e) => { setEsClientOcasional(e.target.checked); setClientId(""); setClientOcasional(""); }}
+                  className="w-3.5 h-3.5 rounded accent-blue-700"
+                />
+                Client ocasional
+              </label>
+            </div>
+            {esClientOcasional ? (
+              <input
+                type="text"
+                value={clientOcasional}
+                onChange={(e) => setClientOcasional(e.target.value)}
+                placeholder="Nom del client ocasional"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            ) : (
+              <SelectorClient clients={clients} value={clientId} onChange={setClientId} />
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipus de residu *</label>
             <select
               value={tipusResidu}
-              onChange={(e) => setTipusResidu(e.target.value)}
+              onChange={(e) => { setTipusResidu(e.target.value); setResiduLliure(""); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {RESIDUS_COMUNS.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+            {tipusResidu === "Altres" && (
+              <input
+                type="text"
+                value={residuLliure}
+                onChange={(e) => setResiduLliure(e.target.value)}
+                placeholder="Descriu el tipus de residu"
+                className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -165,15 +207,27 @@ export default function ModalNouViatge({ onTancar, onCreat, dataInicial, horaIni
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Adreça (opcional)</label>
-            <input
-              type="text"
-              value={adreca}
-              onChange={(e) => setAdreca(e.target.value)}
-              placeholder="Deixa buit per usar l'adreça del client"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Adreça (opcional)</label>
+              <input
+                type="text"
+                value={adreca}
+                onChange={(e) => setAdreca(e.target.value)}
+                placeholder="Per defecte: adreça del client"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telèfon (opcional)</label>
+              <input
+                type="tel"
+                value={telefon}
+                onChange={(e) => setTelefon(e.target.value)}
+                placeholder="Per defecte: telèfon del client"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div>

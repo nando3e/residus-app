@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
         viatge: {
           id,
-          client: viatge?.client.nom,
+          client: viatge?.clientOcasional || viatge?.client?.nom,
           residu: viatge?.tipusResidu,
           data: viatge?.data.toISOString().slice(0, 10),
           hora: viatge?.horaPrevista,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           matricula: viatge?.camio?.matricula,
         },
         incidencia: { tipus: body.tipus, detall: body.detall || undefined },
-        missatge: `Incidència (${tipusLlegible}) a ${viatge?.client.nom}`,
+        missatge: `Incidència (${tipusLlegible}) a ${viatge?.clientOcasional || viatge?.client?.nom}`,
         enllac: construirDeeplink(id),
         timestamp: new Date().toISOString(),
       });

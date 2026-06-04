@@ -11,10 +11,12 @@ import LlistaIncidencies from "./LlistaIncidencies";
 
 interface Viatge {
   id: string;
-  client: { nom: string; telefon?: string; adreca?: string; instruccionsEspecials?: string };
+  client: { nom: string; telefon?: string; adreca?: string; instruccionsEspecials?: string } | null;
+  clientOcasional?: string | null;
   tipusResidu: string;
   horaPrevista: string;
   adreca?: string;
+  telefon?: string;
   instruccions?: string;
   estatExecucio: string;
   estatAssignacio: string;
@@ -144,7 +146,8 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
           ? "No recollit"
           : (t.estats[viatge.estatExecucio] || viatge.estatExecucio);
         const esExpandit = expandit === viatge.id;
-        const adreca = viatge.adreca || viatge.client.adreca;
+        const adreca = viatge.adreca || viatge.client?.adreca;
+        const telefon = viatge.telefon || viatge.client?.telefon;
 
         return (
           <div key={viatge.id} className={cn(
@@ -169,7 +172,7 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                   </span>
                   {recollitAmbInc && <AlertCircle size={13} className="text-amber-500" />}
                 </div>
-                <h3 className="text-base font-bold text-gray-900 truncate">{viatge.client.nom}</h3>
+                <h3 className="text-base font-bold text-gray-900 truncate">{viatge.clientOcasional || viatge.client?.nom}</h3>
                 <p className="text-sm text-gray-500">{viatge.tipusResidu}</p>
               </div>
               {esExpandit ? <ChevronUp size={18} className="text-gray-400 mt-1 shrink-0" /> : <ChevronDown size={18} className="text-gray-400 mt-1 shrink-0" />}
@@ -191,9 +194,9 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                       <span className="truncate">{t.conductor.navegar}</span>
                     </a>
                   )}
-                  {viatge.client.telefon && (
+                  {telefon && (
                     <a
-                      href={`tel:${viatge.client.telefon}`}
+                      href={`tel:${telefon}`}
                       className="flex items-center gap-2 bg-green-50 text-green-700 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-green-100"
                     >
                       <Phone size={16} />
@@ -203,10 +206,10 @@ export default function ConductorClient({ userId }: ConductorClientProps) {
                 </div>
 
                 {/* Instruccions (del viatge i/o del client) */}
-                {(viatge.instruccions || viatge.client.instruccionsEspecials) && (
+                {(viatge.instruccions || viatge.client?.instruccionsEspecials) && (
                   <div className="bg-amber-50 rounded-xl px-3 py-2.5 text-sm text-amber-800 space-y-1">
                     {viatge.instruccions && <p>📋 {viatge.instruccions}</p>}
-                    {viatge.client.instruccionsEspecials && <p>⚠️ {viatge.client.instruccionsEspecials}</p>}
+                    {viatge.client?.instruccionsEspecials && <p>⚠️ {viatge.client.instruccionsEspecials}</p>}
                   </div>
                 )}
 

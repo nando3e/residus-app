@@ -15,9 +15,12 @@ interface ModalVerificarProps {
 }
 
 export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTancar, jaPublicada }: ModalVerificarProps) {
-  const senseAssignar = viatges.filter((v) => !v.camioId);
+  const senseAssignar = viatges.filter((v) => !v.camioId && !v.pendentEliminar);
   // Viatges assignats pendents de publicar (en borrador)
-  const pendentsDePublicar = viatges.filter((v) => v.camioId && v.estatAssignacio === "esborrany");
+  const pendentsDePublicar = viatges.filter((v) => v.camioId && v.estatAssignacio === "esborrany" && !v.pendentEliminar);
+  // Viatges marcats per eliminar (la baixa es publica ara)
+  const pendentsEliminar = viatges.filter((v) => v.pendentEliminar);
+  const totalCanvis = pendentsDePublicar.length + pendentsEliminar.length;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -39,8 +42,25 @@ export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTa
             </div>
           )}
 
+          {pendentsEliminar.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+              <div className="font-medium mb-1">🗑️ S&apos;eliminaran {pendentsEliminar.length} viatge{pendentsEliminar.length > 1 ? "s" : ""}</div>
+              <ul className="space-y-0.5">
+                {pendentsEliminar
+                  .sort((a, b) => a.horaPrevista.localeCompare(b.horaPrevista))
+                  .map((v) => (
+                    <li key={v.id} className="flex items-center gap-2">
+                      <span className="font-mono text-red-500 w-12">{v.horaPrevista}</span>
+                      <span className="line-through">{v.clientOcasional || v.client?.nom}</span>
+                      <span className="text-red-400">{v.tipusResidu}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
           {camions.map((camio) => {
-            const viatgesCamio = viatges.filter((v) => v.camioId === camio.id);
+            const viatgesCamio = viatges.filter((v) => v.camioId === camio.id && !v.pendentEliminar);
             if (viatgesCamio.length === 0) return null;
             return (
               <div key={camio.id} className="rounded-xl border-2 overflow-hidden" style={{ borderColor: camio.color }}>
@@ -59,7 +79,7 @@ export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTa
                     .map((v) => (
                       <div key={v.id} className="px-4 py-2 flex items-center gap-3 text-sm">
                         <span className="font-mono text-gray-500 w-12">{v.horaPrevista}</span>
-                        <span className="font-medium text-gray-800">{v.client.nom}</span>
+                        <span className="font-medium text-gray-800">{v.clientOcasional || v.client?.nom}</span>
                         <span className="text-gray-500">{v.tipusResidu}</span>
                         {v.estatAssignacio === "publicat" && (
                           <CheckCircle2 size={14} className="text-green-500 ml-auto" />
@@ -76,14 +96,14 @@ export default function ModalVerificar({ viatges, camions, dia, onPublicar, onTa
           <button onClick={onTancar} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-300">
             Tancar
           </button>
-          {pendentsDePublicar.length > 0 && (
+          {totalCanvis > 0 && (
             <button
               onClick={onPublicar}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
             >
               <Send size={15} />
               {jaPublicada ? "Publicar canvis" : t.tauler.publicarJornada}
-              <span className="bg-white/25 rounded-full px-1.5">{pendentsDePublicar.length}</span>
+              <span className="bg-white/25 rounded-full px-1.5">{totalCanvis}</span>
             </button>
           )}
         </div>

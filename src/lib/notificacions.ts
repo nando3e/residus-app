@@ -31,10 +31,20 @@ interface ContextViatge {
   matricula?: string;
 }
 
+interface ConductorRef {
+  id: string;
+  nom: string;
+  telegram_chat_id?: string;
+  telefon?: string;
+}
+
 interface Canvi {
   tipus: "hora" | "dia" | "camio" | "cancellacio";
   abans?: string;
   despres?: string;
+  // Només per tipus "camio": conductor anterior i nou perquè el Motor pugui avisar els dos
+  conductorAntic?: ConductorRef;
+  conductorNou?: ConductorRef;
 }
 
 interface IncidenciaInfo {
